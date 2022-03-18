@@ -54,6 +54,8 @@ int turn_num_con = 1;  // 标记已转动圈数
 
 int reset_sign = 0;
 
+int motor2_con = 0;
+
 int wh_con = 0;
 char uart1_res[] = "#0105000000003!";
 
@@ -262,7 +264,7 @@ void harSERVE(void *xTask3)
       // Serial.println("###");
       update = 1;
       int rx_con = 0;
-      for (int i = 0;i < 18;i++)
+      for (int i = 0;i < 17;i++)
       {
         if ((i > 0)&&(i < 14))
         {
@@ -288,7 +290,7 @@ void harSERVE(void *xTask3)
       Serial.println(uart1_res);
     }
 
-    if ((update == 1)&&(uart1_res[13] == '3'))
+    if ((update == 1)&&(uart1_res[4] == '5')&&(uart1_res[13] == '3'))
     {
       if(uart1_res[1] == '0')
       {
@@ -394,6 +396,15 @@ void harSERVE(void *xTask3)
         reset_sign = 1;
       }
 
+      if (uart1_res[5] == '1')
+      {
+        motor2_con = 1;
+      }
+      else if (uart1_res[5] == '0')
+      {
+        motor2_con = 0;
+      }
+
       angle = angle_1 * 10000 + angle_2 * 1000 + angle_3 * 100 + angle_4 * 10 + angle_5;
       // speed = speed_mid1 * 10 + speed_mid2;
       // delay_time = speed;
@@ -401,7 +412,11 @@ void harSERVE(void *xTask3)
       // Serial.println(speed);
       // Serial.println(direction);
       // Serial.println(angle);
-      // Serial.println(reset_sign);
+      Serial.println(motor2_con);
+      for (int i = 0; i<7; i++)
+      {
+        uart1_res[i + 6] = '0';
+      }
       update = 0;
     }
     delay(10);
@@ -423,66 +438,68 @@ void conSERVE(void *xTask4)
 
   while (1)
   {
-    if (reset_sign == 1)
-    {
-      if (con == 0)
-      {
-        angle_set = 180;
-        con = 1;
-      }
-    }
-    else if(direction == 1)
-    {
-      if (con == 0)
-      {
-        angle_set = angle_set - angle;
-        con = 1;
-      }
-    }
-    else if(direction == 2)
-    {
-      if (con == 0)
-      {
-        angle_set = angle_set + angle;
-        con = 1;
-      }
-    }
-
-    // Serial.print(angle_set);
-    // Serial.print(",");
-    // Serial.println(angle_dee);
-    
-    angle_err = angle_dee - angle_set;
-    if (angle_err < 0)
-    {
-      speed_out = -(p * angle_err +  i * (angle_err + angle_err_last) + d * (angle_err_last - angle_err_last2));
-      speed = (int)(3450 - speed_out);
-      if (speed <=400 ){speed = 400;}
-      // Serial.println(speed);
-      delay_time = speed;
-      motor_mode = 1;
-    }
-    if (angle_err > 0)
-    {
-      speed_out = p * angle_err +  i * (angle_err + angle_err_last) + d * (angle_err_last - angle_err_last2);
-      speed = (int)(3450 - speed_out);
-      if (speed <=400 ){speed = 400;}
-      // Serial.println(speed);
-      delay_time = speed;
-      motor_mode = 2;
-    }
-    
-    if ((angle_err < 0.9)&&(angle_err > -0.9))
+    if (motor2_con == 1)
     {
       if (reset_sign == 1)
       {
-        reset_sign = 0;
+        if (con == 0)
+        {
+          angle_set = 180;
+          con = 1;
+        }
       }
-      direction = 0;
-      motor_mode = 0;
-      con = 0;
+      else if(direction == 1)
+      {
+        if (con == 0)
+        {
+          angle_set = angle_set - angle;
+          con = 1;
+        }
+      }
+      else if(direction == 2)
+      {
+        if (con == 0)
+        {
+          angle_set = angle_set + angle;
+          con = 1;
+        }
+      }
+
+      // Serial.print(angle_set);
+      // Serial.print(",");
+      // Serial.println(angle_dee);
+      
+      angle_err = angle_dee - angle_set;
+      if (angle_err < 0)
+      {
+        speed_out = -(p * angle_err +  i * (angle_err + angle_err_last) + d * (angle_err_last - angle_err_last2));
+        speed = (int)(3450 - speed_out);
+        if (speed <=400 ){speed = 400;}
+        // Serial.println(speed);
+        delay_time = speed;
+        motor_mode = 1;
+      }
+      if (angle_err > 0)
+      {
+        speed_out = p * angle_err +  i * (angle_err + angle_err_last) + d * (angle_err_last - angle_err_last2);
+        speed = (int)(3450 - speed_out);
+        if (speed <=400 ){speed = 400;}
+        // Serial.println(speed);
+        delay_time = speed;
+        motor_mode = 2;
+      }
+      
+      if ((angle_err < 0.9)&&(angle_err > -0.9))
+      {
+        if (reset_sign == 1)
+        {
+          reset_sign = 0;
+        }
+        direction = 0;
+        motor_mode = 0;
+        con = 0;
+      }
     }
-    
     delay(10);
   }
 }
