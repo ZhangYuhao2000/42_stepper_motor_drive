@@ -23,7 +23,7 @@ String header;
 
 // Auxiliar variables to store the current output state
 String led1State = "off";
-String motor1State = "stop";
+String motorState = "off";
 String position1 = "0";
 
 String led2State = "off";
@@ -32,15 +32,24 @@ String led3State = "off";
 
 int step_con = 1;
 
-String valueString_1 = String(5);
-int speed_1 = 0;
-int speed_mi1_1 = 0;
-int speed_mi2_1 = 0; 
+String valueString_1 = String(0);
+String valueString_2 = String(0);
+String valueString_3 = String(0);
+String valueString_4 = String(0);
+String valueString_5 = String(0);
+String valueString_6 = String(0);
+int j_1 = 0;
+int j_2 = 0;
+int j_3 = 0;
+int j_4 = 0;
+int j_5 = 0;
+int j_6 = 0;
+int joint_mi1_1 = 0;
+int joint_mi2_1 = 0; 
 
 String angle1direction = "---";
 String angleString_1 = String(0);
-int angle_function_1 = 0;
-int angle_1 = 0;
+
 int angle_mi1_1 = 0;
 int angle_mi2_1 = 0; 
 
@@ -78,11 +87,24 @@ TwoWire I2Cone = TwoWire(0);
 int readValue = 0;
 byte readArray[2];
 int poscon = 0;
-double angle_res = 0.08789;
-double angle_dee = 0;
 
 int uart1_send = 0;
 char uart1_content[] = "#0105000000003!";
+
+double angle_res = 0.08789;
+double angle_mid = 0;
+double angle_dee = 0;  // 读取角度值
+double angle_set = 180;  // 设定角度值
+int turn_num_aim = 0;  // 设定需转动圈数
+int turn_num_con = 1;  // 标记已转动圈数
+
+int angle1_direction = 0;
+int direction = 0;
+int angle = 0;  // 输入需转动的角度值
+int reset_sign = 0;
+
+int all_con = 0;
+int motor1_con = 0;
 
 // Current time
 unsigned long currentTime = millis();
@@ -292,7 +314,19 @@ void webSERVE(void *xTask2)
               client.println();
 
               // turns the GPIOs on and off
-              angle_function_1 = 0;
+              direction = 0;
+              if (header.indexOf("GET /ALL/off") >= 0)
+              {
+                motorState = "on";
+                all_con = 0;
+                uart1_send = 1;
+              }
+              else if (header.indexOf("GET /ALL/on") >= 0)
+              {
+                motorState = "off";
+                all_con = 1;
+                uart1_send = 1;
+              }
               // motor1
               if (header.indexOf("GET /LED1/on") >= 0)
               {
@@ -305,67 +339,85 @@ void webSERVE(void *xTask2)
                 digitalWrite(outputled1, LOW);
               }
 
-              if (header.indexOf("GET /MOTOR1/stop") >= 0)
-              {
-                motor1State = "stop";
-                motor_mode = 0;
-              }
-              else if (header.indexOf("GET /MOTOR1/left") >= 0)
-              {
-                motor1State = "left";
-                motor_mode = 2;
-              }
-              else if (header.indexOf("GET /MOTOR1/right") >= 0)
-              {
-                motor1State = "right";
-                motor_mode = 1;
-              }
-
-              if (header.indexOf("GET /POS1") >= 0)
-              {
-                poscon = 1;
-              }
-
-              if (header.indexOf("GET /?value=") >= 0)
-              {
-                speed_mi1_1 = header.indexOf('=');
-                speed_mi2_1 = header.indexOf('&');
-                valueString_1 = header.substring(speed_mi1_1 + 1, speed_mi2_1);
-                speed_1 = valueString_1.toInt();
-                delay_time = speed_1;
-                // Serial.println(valueString_1);
-              }
-
               if (header.indexOf("GET /?angle1left=") >= 0)
               {
-                angle_function_1 = 1;
+                angle1_direction = 1;
                 angle1direction = "left";
                 angle_mi1_1 = header.indexOf('=');
                 angle_mi2_1 = header.indexOf('&');
                 angleString_1 = header.substring(angle_mi1_1 + 1, angle_mi2_1);
-                angle_1 = angleString_1.toInt();
-                Serial.println(angle1direction);
-                Serial.println(angleString_1);
+                // Serial.println(angle1direction);
+                // Serial.println(angle_1);
               }
               else if (header.indexOf("GET /?angle1right=") >= 0)
               {
-                angle_function_1 = 2;
+                angle1_direction = 2;
                 angle1direction = "right";
                 angle_mi1_1 = header.indexOf('=');
                 angle_mi2_1 = header.indexOf('&');
                 angleString_1 = header.substring(angle_mi1_1 + 1, angle_mi2_1);
-                angle_1 = angleString_1.toInt();
-                Serial.println(angle1direction);
-                Serial.println(angleString_1);
+                // Serial.println(angle1direction);
+                // Serial.println(angle_1);
               }
 
               if (header.indexOf("GET /A1MOVE") >= 0)
               {
-                Serial.println("motor1 move");
+                direction = angle1_direction;
+                angle = angleString_1.toInt();
               }
 
               if (header.indexOf("GET /MOTOR1/reset") >= 0)
               {
+                reset_sign = 1;
+              }
+
+              if (header.indexOf("GET /?valuej1=") >= 0)
+              {
+                joint_mi1_1 = header.indexOf('=');
+                joint_mi2_1 = header.indexOf('&');
+                valueString_1 = header.substring(joint_mi1_1 + 1, joint_mi2_1);
+                j_1 = valueString_1.toInt();
+                Serial.println(j_1);
+              }
+              if (header.indexOf("GET /?valuej2=") >= 0)
+              {
+                joint_mi1_1 = header.indexOf('=');
+                joint_mi2_1 = header.indexOf('&');
+                valueString_2 = header.substring(joint_mi1_1 + 1, joint_mi2_1);
+                j_2 = valueString_2.toInt();
+                Serial.println(j_2);
+              }
+              if (header.indexOf("GET /?valuej3=") >= 0)
+              {
+                joint_mi1_1 = header.indexOf('=');
+                joint_mi2_1 = header.indexOf('&');
+                valueString_3 = header.substring(joint_mi1_1 + 1, joint_mi2_1);
+                j_3 = valueString_3.toInt();
+                Serial.println(j_3);
+              }
+              if (header.indexOf("GET /?valuej4=") >= 0)
+              {
+                joint_mi1_1 = header.indexOf('=');
+                joint_mi2_1 = header.indexOf('&');
+                valueString_4 = header.substring(joint_mi1_1 + 1, joint_mi2_1);
+                j_4 = valueString_4.toInt();
+                Serial.println(j_4);
+              }
+              if (header.indexOf("GET /?valuej5=") >= 0)
+              {
+                joint_mi1_1 = header.indexOf('=');
+                joint_mi2_1 = header.indexOf('&');
+                valueString_5 = header.substring(joint_mi1_1 + 1, joint_mi2_1);
+                j_5 = valueString_5.toInt();
+                Serial.println(j_5);
+              }
+              if (header.indexOf("GET /?valuej6=") >= 0)
+              {
+                joint_mi1_1 = header.indexOf('=');
+                joint_mi2_1 = header.indexOf('&');
+                valueString_6 = header.substring(joint_mi1_1 + 1, joint_mi2_1);
+                j_6 = valueString_6.toInt();
+                Serial.println(j_6);
               }
 
               // motor2
@@ -755,11 +807,13 @@ void webSERVE(void *xTask2)
               // CSS to style the on/off buttons
               // Feel free to change the background-color and font-size attributes to fit your preferences
               client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: left;}");
-              client.println(".slider { width: 250px; }");
+              client.println(".slider { width: 300px; }");
               client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 8px 20px;");
               client.println("text-decoration: none; font-size: 15px; margin: 2px; cursor: pointer;}");
               client.println(".button3 {background-color: #4CAF50;}");
               client.println(".button4 {background-color: #FF6000;}");
+              client.println(".button5 {background-color: #CC0000;}");
+              client.println(".button6 {background-color: #006600;}");
               client.println(".button2 {background-color: #555555;}</style></head>");
               client.println("<script src=\"http://libs.baidu.com/jquery/2.0.0/jquery.js\"></script>");
 
@@ -768,7 +822,22 @@ void webSERVE(void *xTask2)
 
               //******************************************************************************************//
               //motor1//
-              client.println("<div id=\"motor1\" style=\"background-color:#FFD700;height:100px;width:350px;float:left;\">");
+              client.println("<div id=\"motor1\" style=\"background-color:#FFD700;height:260px;width:350px;float:left;\">");
+
+              client.println("<p>=====================================</p>");
+              client.println("<p>=====================================</p>");
+              client.println("<p>=====================================</p>");
+              if (motorState == "off")
+              {
+                client.println("<p><a href=\"/ALL/off\"><button class=\"button button5\">| |</button></a> || MOTOR_STATE :" + motorState + "</p>");
+              }
+              else
+              {
+                client.println("<p><a href=\"/ALL/on\"><button class=\"button button6\">| |</button></a> || MOTOR_STATE :" + motorState + "</p>");
+              }
+              client.println("<p>=====================================</p>");
+              client.println("<p>=====================================</p>");
+              client.println("<p>=====================================</p>");
 
               client.println("<p>LED 1 - State " + led1State + "</p>");
               if (led1State == "off")
@@ -780,43 +849,7 @@ void webSERVE(void *xTask2)
                 client.println("<p><a href=\"/LED1/off\"><button class=\"button button2\">OFF</button></a></p>");
               }
 
-              client.println("<p>MOTOR 1 - State " + motor1State + "</p>");
-
-              if (motor1State == "stop")
-              {
-                client.println("<p><a href=\"/MOTOR1/left\"><button class=\"button button2\">LEFT</button></a>  <a href=\"/MOTOR1/stop\"><button class=\"button\">STOP</button></a>  <a href=\"/MOTOR1/right\"><button class=\"button button2\">RIGHT</button></a></p>");
-              }
-              else if (motor1State == "left")
-              {
-                client.println("<p><a href=\"/MOTOR1/left\"><button class=\"button\">LEFT</button></a>  <a href=\"/MOTOR1/stop\"><button class=\"button button2\">STOP</button></a>  <a href=\"/MOTOR1/right\"><button class=\"button button2\">RIGHT</button></a></p>");
-              }
-              else if (motor1State == "right")
-              {
-                client.println("<p><a href=\"/MOTOR1/left\"><button class=\"button button2\">LEFT</button></a>  <a href=\"/MOTOR1/stop\"><button class=\"button button2\">STOP</button></a>  <a href=\"/MOTOR1/right\"><button class=\"button\">RIGHT</button></a></p>");
-              }
-
-              client.println("<p>SPEED 1 </p>");
-              client.println("<p>speed set: <span id=\"servoPos\"></span></p>");
-              client.println("<input type=\"range\" min=\"1\" max=\"20\" class=\"slider\" id=\"servoSlider\" onchange=\"servo(this.value)\" value=\""+valueString_1+"\"/>");
-              
-              client.println("<script>var slider = document.getElementById(\"servoSlider\");");
-              client.println("var servoP = document.getElementById(\"servoPos\"); servoP.innerHTML = slider.value;");
-              client.println("slider.oninput = function() { slider.value = this.value; servoP.innerHTML = this.value; }");
-              client.println("$.ajaxSetup({timeout:1000}); function servo(pos) { ");
-              client.println("$.get(\"/?value=\" + pos + \"&\"); {Connection: close};}</script>");
-
-              if (poscon == 1)
-              {
-                position1 = String(readValue);
-                client.println("<p>POSITION1 VALUE: " + position1 + "</p>");
-                client.println("<p><a href=\"/POS1\"><button class=\"button\">POS</button></a></p>");
-                poscon = 0;
-              }
-              else
-              {
-                client.println("<p>POSITION1 VALUE: " + position1 + "</p>");
-                client.println("<p><a href=\"/POS1\"><button class=\"button\">POS</button></a></p>");
-              }
+              client.println("<p>MOTOR 1 & CENTRAL CONTROL</p>");
 
               client.println("<p>ANGLE 1 </p>");
               client.println("<p id=\"angel1\">set angle: <span id=\"angle1set\"></span></p>");
@@ -833,7 +866,7 @@ void webSERVE(void *xTask2)
               //******************************************************************************************//
               //motor2 ID = 3//
 
-              client.println("<div id=\"motor2\" style=\"float:left;\">");
+              client.println("<div id=\"motor2\" style=\"width:400px;float:left;\">");
               client.println("<p>LED 2 - State " + led2State + "</p>");
               if (led2State == "off")
               {
@@ -860,7 +893,7 @@ void webSERVE(void *xTask2)
               //******************************************************************************************//
               //motor3 ID = 4//
 
-              client.println("<p>=======================================</p>");
+              client.println("<p>==============================</p>");
               client.println("<p>LED 3 - State " + led3State + "</p>");
               if (led3State == "off")
               {
@@ -884,6 +917,64 @@ void webSERVE(void *xTask2)
               client.println("<p><button class=\"button button3\" onclick=\"angle3left()\">LEFT</button> <button class=\"button button3\" onclick=\"angle3right()\">RIGHT</button> <a href=\"/MOTOR3/reset\"><button class=\"button button4\">RESET</button></a></p>");
 
               client.println("</div>");
+
+              //******************************************************************************************//
+
+              client.println("<div id=\"SXF-ARM-CONTROL\" style=\"background-color:#BFBFBF;height:100px;width:350px;float:left;\">");
+              client.println("<p>ARM-JOINT </p>");
+              client.println("<p>=====================================</p>");
+              client.println("<p>=====================================</p>");
+              // 1
+              client.println("<p>J1 : <span id=\"servoPos\"></span></p>");
+              client.println("<input type=\"range\" min=\"-90\" max=\"90\" class=\"slider\" id=\"servoSlider\" onchange=\"servo(this.value)\" value=\""+valueString_1+"\"/>");
+              client.println("<script>var slider = document.getElementById(\"servoSlider\");");
+              client.println("var servoP = document.getElementById(\"servoPos\"); servoP.innerHTML = slider.value;");
+              client.println("slider.oninput = function() { slider.value = this.value; servoP.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servo(pos) { ");
+              client.println("$.get(\"/?valuej1=\" + pos + \"&\"); {Connection: close};}</script>");
+              // 2
+              client.println("<p>J2 : <span id=\"servoPos2\"></span></p>");
+              client.println("<input type=\"range\" min=\"-90\" max=\"90\" class=\"slider\" id=\"servoSlider2\" onchange=\"servo2(this.value)\" value=\""+valueString_2+"\"/>");
+              client.println("<script>var slider2 = document.getElementById(\"servoSlider2\");");
+              client.println("var servoP2 = document.getElementById(\"servoPos2\"); servoP2.innerHTML = slider2.value;");
+              client.println("slider2.oninput = function() { slider2.value = this.value; servoP2.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servo2(pos) { ");
+              client.println("$.get(\"/?valuej2=\" + pos + \"&\"); {Connection: close};}</script>");
+              // 3
+              client.println("<p>J3 : <span id=\"servoPos3\"></span></p>");
+              client.println("<input type=\"range\" min=\"-90\" max=\"90\" class=\"slider\" id=\"servoSlider3\" onchange=\"servo3(this.value)\" value=\""+valueString_3+"\"/>");
+              client.println("<script>var slider3 = document.getElementById(\"servoSlider3\");");
+              client.println("var servoP3 = document.getElementById(\"servoPos3\"); servoP3.innerHTML = slider3.value;");
+              client.println("slider3.oninput = function() { slider3.value = this.value; servoP3.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servo3(pos) { ");
+              client.println("$.get(\"/?valuej3=\" + pos + \"&\"); {Connection: close};}</script>");
+              // 4
+              client.println("<p>J4 : <span id=\"servoPos4\"></span></p>");
+              client.println("<input type=\"range\" min=\"-90\" max=\"90\" class=\"slider\" id=\"servoSlider4\" onchange=\"servo4(this.value)\" value=\""+valueString_4+"\"/>");
+              client.println("<script>var slider4 = document.getElementById(\"servoSlider4\");");
+              client.println("var servoP4 = document.getElementById(\"servoPos4\"); servoP4.innerHTML = slider4.value;");
+              client.println("slider4.oninput = function() { slider4.value = this.value; servoP4.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servo4(pos) { ");
+              client.println("$.get(\"/?valuej4=\" + pos + \"&\"); {Connection: close};}</script>");
+              // 5
+              client.println("<p>J5 : <span id=\"servoPos5\"></span></p>");
+              client.println("<input type=\"range\" min=\"-90\" max=\"90\" class=\"slider\" id=\"servoSlider5\" onchange=\"servo5(this.value)\" value=\""+valueString_5+"\"/>");
+              client.println("<script>var slider5 = document.getElementById(\"servoSlider5\");");
+              client.println("var servoP5 = document.getElementById(\"servoPos5\"); servoP5.innerHTML = slider5.value;");
+              client.println("slider5.oninput = function() { slider5.value = this.value; servoP5.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servo5(pos) { ");
+              client.println("$.get(\"/?valuej5=\" + pos + \"&\"); {Connection: close};}</script>");
+              // 6
+              client.println("<p>J6 : <span id=\"servoPos6\"></span></p>");
+              client.println("<input type=\"range\" min=\"-90\" max=\"90\" class=\"slider\" id=\"servoSlider6\" onchange=\"servo6(this.value)\" value=\""+valueString_6+"\"/>");
+              client.println("<script>var slider6 = document.getElementById(\"servoSlider6\");");
+              client.println("var servoP6 = document.getElementById(\"servoPos6\"); servoP6.innerHTML = slider6.value;");
+              client.println("slider6.oninput = function() { slider6.value = this.value; servoP6.innerHTML = this.value; }");
+              client.println("$.ajaxSetup({timeout:1000}); function servo6(pos) { ");
+              client.println("$.get(\"/?valuej6=\" + pos + \"&\"); {Connection: close};}</script>");
+
+              client.println("</div>");
+
               
               // The HTTP response ends with another blank line
               client.println();
@@ -914,6 +1005,8 @@ void webSERVE(void *xTask2)
 
 void codSERVE(void *xTask3)
 {
+  int turn_jug_s = 0;
+  int turn_jug_n = 0;
   while (1)
   {
     I2Cone.requestFrom(0X36, (uint8_t)2);
@@ -929,10 +1022,39 @@ void codSERVE(void *xTask3)
     // readValue = ( readArray[1] &  lsb_mask );
     // readValue += ( ( readArray[0] & msb_mask ) << lsb_used );
     readValue = readArray[0] * 256 + readArray[1];
-    angle_dee = readValue * angle_res;
-    // Serial.println(readValue);
-    // Serial.println(angle_dee);
-    delay(1);
+
+    if (readValue > 4076){turn_jug_s = 1;}
+    if (turn_jug_s == 1)
+    {
+      if ((readValue >= 0)&&(readValue < 20))
+      {
+        turn_num_con = turn_num_con + 1;
+        turn_jug_s = 0;
+      }
+      else if (readValue <= 4076)
+      {
+        turn_jug_s = 0;
+      }
+    }  // 顺时针过圈
+    if ((readValue >= 0)&&(readValue < 20)){turn_jug_n = 1;}
+    if (turn_jug_n == 1)
+    {
+      if (readValue > 4076)
+      {
+        turn_num_con = turn_num_con - 1;
+        turn_jug_n = 0;
+      }
+      else if (readValue >= 20)
+      {
+        turn_jug_n = 0;
+      }
+    }  // 逆时针过圈
+    angle_mid = angle_res * readValue;
+
+    if (turn_num_con >= 0){angle_dee = turn_num_con * 360 + angle_mid;}
+    else if (turn_num_con < 0){angle_dee = (turn_num_con + 1) * 360 - (360 - angle_mid);}
+    // Serial.println(turn_num_con);
+    delay(2);
   }
 }
 
@@ -942,19 +1064,125 @@ void uartSERVE(void *xTask4)
   {
     if(uart1_send == 1)
     {
-      Serial1.println(uart1_content);  // ID = 3
-      Serial.println(uart1_content);
-
-      if (uart1_content[5] == '1')
+      if (all_con == 0)
       {
+        motor1_con = 0;
         uart1_content[5] = '0';
+        uart1_content[13] = '3';
+        Serial1.println(uart1_content);  // ID = 3
+        Serial.println(uart1_content);
+        delay(10);
+        uart1_content[5] = '0';
+        uart1_content[13] = '4';
+        Serial1.println(uart1_content);  // ID = 3
+        Serial.println(uart1_content);
+        all_con = 2;
       }
+      else if (all_con == 1)
+      {
+        motor1_con = 1;
+        uart1_content[5] = '1';
+        uart1_content[13] = '3';
+        Serial1.println(uart1_content);  // ID = 3
+        Serial.println(uart1_content);
+        uart1_content[5] = '1';
+        uart1_content[13] = '4';
+        Serial1.println(uart1_content);  // ID = 3
+        Serial.println(uart1_content);
+        all_con = 2;
+      }
+      else
+      {
+        Serial1.println(uart1_content);  // ID = 3
+        Serial.println(uart1_content);
+      }
+
       for (int i = 0; i<7; i++)
       {
         uart1_content[i + 6] = '0';
       }
 
       uart1_send = 0;
+    }
+    delay(10);
+  }
+}
+
+void conSERVE(void *xTask5)
+{
+  double angle_err = 0;
+  double angle_err_last = 0;
+  double angle_err_last2 = 0;
+  double speed = 550;
+  double p = 150;
+  double i = 0.5;
+  double d = 0;
+  double speed_out = 0;
+  int con = 0;
+
+  while (1)
+  {
+    if (motor1_con == 1)
+    {
+      if (reset_sign == 1)
+      {
+        if (con == 0)
+        {
+          angle_set = 180;
+          con = 1;
+        }
+      }
+      else if(direction == 1)
+      {
+        if (con == 0)
+        {
+          angle_set = angle_set - angle;
+          con = 1;
+        }
+      }
+      else if(direction == 2)
+      {
+        if (con == 0)
+        {
+          angle_set = angle_set + angle;
+          con = 1;
+        }
+      }
+
+      // Serial.print(angle_set);
+      // Serial.print(",");
+      // Serial.println(angle_dee);
+      
+      angle_err = angle_dee - angle_set;
+      if (angle_err < 0)
+      {
+        speed_out = -(p * angle_err +  i * (angle_err + angle_err_last) + d * (angle_err_last - angle_err_last2));
+        speed = (int)(20 - speed_out/100);
+        if (speed <=1 ){speed = 1;}
+        // Serial.println(speed_out);
+        delay_time = speed;
+        motor_mode = 1;
+      }
+      if (angle_err > 0)
+      {
+        speed_out = p * angle_err +  i * (angle_err + angle_err_last) + d * (angle_err_last - angle_err_last2);
+        speed = (int)(20 - speed_out/100);
+        if (speed <=1 ){speed = 1;}
+        // Serial.println(speed_out);
+        delay_time = speed;
+        motor_mode = 2;
+      }
+      
+      if ((angle_err < 0.9)&&(angle_err > -0.9))
+      {
+        if (reset_sign == 1)
+        {
+          reset_sign = 0;
+        }
+        direction = 0;
+        motor_mode = 0;
+        con = 0;
+      }
     }
     delay(10);
   }
@@ -1021,9 +1249,10 @@ void setup()
 #else
   //最后一个参数至关重要，决定这个任务创建在哪个核上.PRO_CPU 为 0, APP_CPU 为 1,或者 tskNO_AFFINITY 允许任务在两者上运行.
   xTaskCreatePinnedToCore(motorSERVE, "motorSERVE", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(webSERVE, "webSERVE", 4096, NULL, 3, NULL, 1);
-  xTaskCreatePinnedToCore(codSERVE, "codSERVE", 4096, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(uartSERVE, "uartSERVE", 4096, NULL, 4, NULL, 1);
+  xTaskCreatePinnedToCore(webSERVE, "webSERVE", 4096, NULL, 4, NULL, 1);
+  xTaskCreatePinnedToCore(codSERVE, "codSERVE", 4096, NULL, 2, NULL, 0);
+  xTaskCreatePinnedToCore(uartSERVE, "uartSERVE", 4096, NULL, 5, NULL, 0);
+  xTaskCreatePinnedToCore(conSERVE, "conSERVE", 4096, NULL, 3, NULL, 0);
 
 #endif
 }
